@@ -42,7 +42,9 @@ abstract class Command extends SCommand
                 $this->start();
                 break;
             case 'stop':
-                $this->stop();
+                // Fixed by Spywer
+                //$this->stop(); Replace to $this->exit();
+				$this->exit();
                 break;
             case 'restart':
                 $this->restart();

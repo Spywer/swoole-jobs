@@ -312,7 +312,7 @@ class Process
                                             '{hostname}'    => gethostname(),
                                             '{pname}'       => $this->processName,
                                             '{topic}'       => $topic['name'],
-                                            '{message}'     => '积压消息个数:' . $len,
+                                            '{message}'     => 'Number of failed messages: ' . $len,
                                         ]);
                     }
 
@@ -419,14 +419,19 @@ class Process
     private function getMasterData($key='')
     {
 		// Fixed by Spywer
-		if(is_file($this->pidInfoFile)) 
+		if(file_exists($this->pidInfoFile)) 
 		{
-			$data=unserialize(file_get_contents($this->pidInfoFile));
-			if ($key) {
-				return $data[$key] ?? null;
-			}
+			$content = @file_get_contents($this->pidInfoFile);
+			
+			if($content) {
+				  
+				$data=unserialize($content);
+				if ($key) {
+					return $data[$key] ?? null;
+				}
 
-			return $data;
+				return $data;
+			}
 		}
 		
 		return null;

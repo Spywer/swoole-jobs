@@ -1,5 +1,7 @@
 <?php
 
+// Powered by Spywer
+
 namespace Kcloze\Jobs\Queue;
 
 use Kcloze\Jobs\Queue\BaseTopicQueue;
@@ -22,29 +24,21 @@ class NsqTopicQueue extends BaseTopicQueue
     private $consumer = null;
     private $generator  = null;
     private $message  = null;
+	
+	private $ping = null;
 
     public function __construct($config, Logs $logger)
     {
         $this->config   = $config;
         $this->logger  = $logger;
-    }
-
-    protected function initProducer()
-    {
-        if(!$this->producer) {
-            $this->producer = new Producer($this->config['protocol'].'://'.$this->config['host'].':'.$this->config['port']);
-        }
-
-        return $this->producer;
-    }
-
-    protected function initConsumer()
-    {
-        if(!$this->consumer) {
-            $this->consumer = new Consumer($this->config['protocol'].'://'.$this->config['host'].':'.$this->config['port']);
-        }
-
-        return $this->consumer;
+		
+		$this->ping = $this->apiClient('GET', 'ping') == 'OK' ? true : false;
+		
+		if(isset($config['producer']) && $config['producer'] == true) {
+			$this->producer = new Producer($this->config['protocol'].'://'.$this->config['host'].':'.$this->config['port']);
+		} else {
+			$this->consumer = new Consumer($this->config['protocol'].'://'.$this->config['host'].':'.$this->config['port']);
+		}
     }
 
     public static function getConnection(array $config, Logs $logger)
@@ -62,9 +56,9 @@ class NsqTopicQueue extends BaseTopicQueue
         $delay = $job->jobExtras['delay'] ?? 0;
 
         if($delay) {
-            $this->initProducer()->dpub($topic, Serialize::serialize($job, $serializeFunc), $delay);
+            $this->producer->dpub($topic, Serialize::serialize($job, $serializeFunc), $delay);
         } else {
-            $this->initProducer()->pub($topic, Serialize::serialize($job, $serializeFunc));
+            $this->producer->pub($topic, Serialize::serialize($job, $serializeFunc));
         }
 
         return $job->uuid ?? '';
@@ -73,23 +67,24 @@ class NsqTopicQueue extends BaseTopicQueue
     public function pop($topic, $unSerializeFunc='php')
     {
         if (!$this->isConnected()) {
-            return false;
+            return NULL;
         }
 
-        $subscriber = new Subscriber($this->initConsumer());
-        $this->generator = $subscriber->subscribe($topic, $topic);
-        $this->message = $this->generator->current();
+        $subscriber = new Subscriber($this->consumer);
 
-        if ($this->message instanceof Message) {
+		$this->generator = $subscriber->subscribe($topic, $topic);
+		$this->message = $this->generator->current();
 
-            $payload = $this->message->body;
+		if ($this->message instanceof Message) {
 
-            $unSerializeFunc=Serialize::isSerial($payload) ? 'php' : 'json';
+			$payload = $this->message->body;
 
-            return !empty($payload) ? Serialize::unSerialize($payload, $unSerializeFunc) : null;
-        }
+			$unSerializeFunc=Serialize::isSerial($payload) ? 'php' : 'json';
 
-        return false;
+			return !empty($payload) ? Serialize::unSerialize($payload, $unSerializeFunc) : null;
+		}
+
+        return NULL;
     }
 
     public function ack(): bool
@@ -109,14 +104,14 @@ class NsqTopicQueue extends BaseTopicQueue
 
     public function len($topic): int
     {
-        $response = $this->apiClient('GET', 'stats', ['topic' => $topic, 'format' => 'json']);
+        $response = $this->apiClient('GET', 'stats', ['topic' => $topic, 'channel' => $topic, 'format' => 'json']);
 
         if($response) {
 
             if($response && isset($response->topics[0]) && isset($response->topics[0]->channels[0]) && isset($response->topics[0]->channels[0]->depth)) {
-
-                return (int) $response->topics[0]->channels[0]->depth;
-
+                
+				return (int) $response->topics[0]->channels[0]->depth;
+				
             }
         }
 
@@ -169,14 +164,7 @@ class NsqTopicQueue extends BaseTopicQueue
     {
         try {
 
-            if($this->producer) {
-
-                return $this->producer->isReady();
-
-            } else if($this->consumer) {
-
-                return $this->consumer->isReady();
-            }
+            return $this->ping;
 
         } catch (\Throwable $e) {
             Utils::catchError($this->logger, $e);
@@ -195,25 +183,29 @@ class NsqTopicQueue extends BaseTopicQueue
     {
         $options = [];
 
-        if($param) { $query = '?'.http_build_query($param); }
+        if($param) { $query = '?'.http_build_query($param); } else { $query = ''; }
 
         if($method == 'POST' && $post) {
             $options = array_merge_recursive($options, ['form_params' => $post]);
         }
 
         $client = new \GuzzleHttp\Client([
-            'base_uri' => $this->config['host'].':'.$this->config['port'],
+            'base_uri' => $this->config['api']['host'].':'.$this->config['api']['port'],
             'verify' => false,
             'timeout' => 5.0
         ]);
+		
+		$res = $client->request($method, $path.$query, $options);
 
         try {
 
-            $res = $client->request($method, $path.$query, $options);
-
             if($res->getStatusCode() == 200) {
 
-                return json_decode($res->getBody()->getContents());
+				if(isset($param['format']) && $param['format'] == 'json') {
+					return json_decode($res->getBody()->getContents());
+				} else {
+					return $res->getBody()->getContents();
+				}
             }
 
         } catch (\Exception $e) {

@@ -39,7 +39,10 @@ class AppCommand extends Command
     protected function restart()
     {
         $this->logger->log('restarting...');
-        $this->stop();
+		
+        // Fixed by Spywer
+		//$this->stop(); Replae to $this->exit();
+        $this->exit();
         sleep(3);
         $this->start();
     }
