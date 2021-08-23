@@ -1,0 +1,33 @@
+{
+    "name": "spywer/swoole-jobs",
+    "description": "Fork Swoole Jobs by Spywer",
+    "keywords": ["swoole", "job", "scheduler", "Spywer"],
+    "homepage": "https://github.com/Spywer/swoole-jobs",
+    "license": "MIT",
+    "require": {
+        "php": ">=7.0",
+        "ext-swoole": ">=1.8.9",
+        "ext-redis": "*",
+        "symfony/console": "^3.4",
+        "bramus/router": "^1.3",
+        "guzzlehttp/guzzle": "^6.3",
+        "enqueue/amqp-ext": "^0.8"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^4.8.35 || ^5.7"
+    },
+    "authors": [
+        {
+            "name": "spywer"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Kcloze\\Jobs\\": "src"
+        }
+    },
+    "bin": [
+        "swoole-jobs"
+    ]
+    
+}
