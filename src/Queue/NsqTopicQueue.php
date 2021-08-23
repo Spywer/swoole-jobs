@@ -71,9 +71,16 @@ class NsqTopicQueue extends BaseTopicQueue
         }
 
         $subscriber = new Subscriber($this->consumer);
-
 		$this->generator = $subscriber->subscribe($topic, $topic);
-		$this->message = $this->generator->current();
+		
+		try {
+			
+			$this->message = $this->generator->current();
+			
+		} catch (\Exception $e) {
+			
+			$this->message = NULL;
+		}
 
 		if ($this->message instanceof Message) {
 
@@ -90,15 +97,15 @@ class NsqTopicQueue extends BaseTopicQueue
     public function ack(): bool
     {
         if ($this->message instanceof Message) {
-
             $this->message->touch();
             $this->message->finish();
-
-            $this->generator->send(Subscriber::STOP);
-
-            return true;
         }
-
+		
+		if($this->generator) {
+			$this->generator->send(Subscriber::STOP);
+			return true;
+		}
+		
         return false;
     }
 
