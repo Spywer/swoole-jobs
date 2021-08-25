@@ -1,6 +1,7 @@
 <?php
 
 // Powered by Spywer
+// For "nsq/nsq": "0.4.1" with PHP 8
 
 namespace Kcloze\Jobs\Queue;
 
