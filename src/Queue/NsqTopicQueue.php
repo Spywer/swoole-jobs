@@ -1,7 +1,6 @@
 <?php
 
 // Powered by Spywer
-// For "nsq/nsq": "0.4.1" with PHP 8
 
 namespace Kcloze\Jobs\Queue;
 
@@ -11,35 +10,31 @@ use Kcloze\Jobs\Logs;
 use Kcloze\Jobs\Serialize;
 use Kcloze\Jobs\Utils;
 
-use Nsq\Producer;
-use Nsq\Consumer;
-use Nsq\Message;
-use Nsq\Subscriber;
+use OneNsq\Client;
 
 class NsqTopicQueue extends BaseTopicQueue
 {
     private $config = null;
     private $logger = null;
 
-    private $producer = null;
-    private $consumer = null;
-    private $generator  = null;
-    private $message  = null;
+    private $client = null;
+    private $payload  = null;
 	
 	private $ping = null;
 
     public function __construct($config, Logs $logger)
     {
-        $this->config   = $config;
+        $this->config  = $config;
         $this->logger  = $logger;
 		
 		$this->ping = $this->apiClient('GET', 'ping') == 'OK' ? true : false;
-		
-		if(isset($config['producer']) && $config['producer'] == true) {
-			$this->producer = new Producer($this->config['protocol'].'://'.$this->config['host'].':'.$this->config['port']);
-		} else {
-			$this->consumer = new Consumer($this->config['protocol'].'://'.$this->config['host'].':'.$this->config['port']);
-		}
+
+        $conf = [
+            'msg_timeout' => isset($config['client']) ? $config['client']['msg_timeout'] : 6000,
+            'heartbeat_interval' => isset($config['client']) ? $config['client']['heartbeat_interval'] : 1600,
+        ];
+
+        $this->client = new Client($this->config['protocol'].'://'.$this->config['host'].':'.$this->config['port'], $conf);
     }
 
     public static function getConnection(array $config, Logs $logger)
@@ -55,12 +50,17 @@ class NsqTopicQueue extends BaseTopicQueue
         }
 
         $delay = $job->jobExtras['delay'] ?? 0;
+		
+		try {
 
-        if($delay) {
-            $this->producer->dpub($topic, Serialize::serialize($job, $serializeFunc), $delay);
-        } else {
-            $this->producer->pub($topic, Serialize::serialize($job, $serializeFunc));
-        }
+            $this->client->publish($topic, Serialize::serialize($job, $serializeFunc), $delay);
+		
+		} catch (\Exception $e) {
+
+            $this->ping = false;
+
+			return '';
+		}
 
         return $job->uuid ?? '';
     }
@@ -71,42 +71,34 @@ class NsqTopicQueue extends BaseTopicQueue
             return NULL;
         }
 
-        $subscriber = new Subscriber($this->consumer);
-		$this->generator = $subscriber->subscribe($topic, $topic);
-		
-		try {
-			
-			$this->message = $this->generator->current();
-			
-		} catch (\Exception $e) {
-			
-			$this->message = NULL;
-		}
+        $subscriber = $this->client->subscribe($topic, $topic);
 
-		if ($this->message instanceof Message) {
+        $this->payload = $subscriber->current();
 
-			$payload = $this->message->body;
+        if(isset($this->payload->id)) {
 
-			$unSerializeFunc=Serialize::isSerial($payload) ? 'php' : 'json';
-
-			return !empty($payload) ? Serialize::unSerialize($payload, $unSerializeFunc) : null;
-		}
+            $unSerializeFunc=Serialize::isSerial($this->payload->msg) ? 'php' : 'json';
+            return !empty($this->payload->msg) ? Serialize::unSerialize($this->payload->msg, $unSerializeFunc) : null;
+        }
 
         return NULL;
     }
 
     public function ack(): bool
     {
-        if ($this->message instanceof Message) {
-            $this->message->touch();
-            $this->message->finish();
+        if($this->client) {
+
+            if($this->payload) {
+
+                $this->client->touch($this->payload->id);
+                $this->client->finish($this->payload->id);
+
+                return true;
+            }
         }
-		
-		if($this->generator) {
-			$this->generator->send(Subscriber::STOP);
-			return true;
-		}
-		
+
+        $this->ping = false;
+
         return false;
     }
 
@@ -158,14 +150,13 @@ class NsqTopicQueue extends BaseTopicQueue
             return false;
         }
 
-        if($this->producer) {
-
-            return $this->producer->disconnect();
-
-        } else if($this->consumer) {
-
-            return $this->consumer->disconnect();
+        if($this->client) {
+            return $this->client->close();
         }
+
+        $this->ping = false;
+
+        return false;
     }
 
     public function isConnected()
@@ -176,15 +167,11 @@ class NsqTopicQueue extends BaseTopicQueue
 
         } catch (\Throwable $e) {
             Utils::catchError($this->logger, $e);
-
-            return false;
         } catch (\Exception $e) {
             Utils::catchError($this->logger, $e);
-
-            return false;
         }
 
-        return true;
+        return false;
     }
 
     protected function apiClient($method = 'GET', $path = NULL, $param = array(), $post = array())
