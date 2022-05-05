@@ -24,7 +24,7 @@ class QueueTest extends TestCase
     public function __construct()
     {
         $this->config              = require SWOOLE_JOBS_ROOT_PATH . '/config.php';
-        $logger                    = Logs::getLogger($this->config['logPath'] ?? '', $this->config['logSaveFileApp'] ?? '');
+        $logger                    = Logs::getLogger($this->config['logPath'] ?? '', $this->config['logSaveFileApp'] ?? '', $this->config['system'] ?? '', $config['logLevel'] ?? '');
         $this->queue               =Queue::getQueue($this->config['job']['queue'], $logger);
     }
 

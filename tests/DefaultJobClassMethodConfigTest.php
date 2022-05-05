@@ -12,7 +12,7 @@ class DefaultJobClassMethodConfigTest extends TestCase
     {
         $this->config= require SWOOLE_JOBS_ROOT_PATH . '/config.php';
         \Kcloze\Jobs\Config::setConfig($this->config);
-        $logger      = \Kcloze\Jobs\Logs::getLogger($this->config['logPath'] ?? '', $this->config['logSaveFileApp'] ?? '');
+        $logger      = \Kcloze\Jobs\Logs::getLogger($this->config['logPath'] ?? '', $this->config['logSaveFileApp'] ?? '', $this->config['system'] ?? '', $config['logLevel'] ?? '');
         $this->queue =\Kcloze\Jobs\Queue\Queue::getQueue($this->config['job']['queue'], $logger);
     }
 

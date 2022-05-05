@@ -16,7 +16,7 @@ class Message
 {
     public static function getMessage(array $config)
     {
-        $logger      = Logs::getLogger(Config::getConfig()['logPath'] ?? '', Config::getConfig()['logSaveFileApp'] ?? '');
+        $logger      = Logs::getLogger(Config::getConfig()['logPath'] ?? '', Config::getConfig()['logSaveFileApp'] ?? '', Config::getConfig()['system'] ?? '', Config::getConfig()['logLevel'] ?? '');
         $classMessage=$config['class'] ?? '\Kcloze\Jobs\Message\DingMessage';
         try {
             $message = new $classMessage();

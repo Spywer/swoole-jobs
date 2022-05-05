@@ -40,7 +40,7 @@ class PushJobs
     public function push($topic, $jobClass, $jobMethod, $jobParams=[], $jobExtras=[], $serializeFunc='php')
     {
         $config        = require SWOOLE_JOBS_ROOT_PATH . '/config.php';
-        $logger        = Logs::getLogger($config['logPath'] ?? '', $config['logSaveFileApp'] ?? '');
+        $logger        = Logs::getLogger($config['logPath'] ?? '', $config['logSaveFileApp'] ?? '', $config['system'] ?? '', $config['logLevel'] ?? '');
         $queue         =Queue::getQueue($config['job']['queue'], $logger);
         $queue->setTopics($config['job']['topics']);
         

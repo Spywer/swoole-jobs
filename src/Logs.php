@@ -25,6 +25,7 @@ class Logs
     //系统日志标识
     private $logSystem       = 'swoole-jobs';
 
+    private $logLevel     = NULL;
     private $logPath      = '';
     //单个类型log
     private $logs                 = [];
@@ -34,13 +35,14 @@ class Logs
 
     private static $instance=null;
 
-    public function __construct($logPath, $logSaveFileApp='', $logSystem = '')
+    public function __construct($logPath, $logSaveFileApp='', $logSystem = '', $logLevel = NULL)
     {
         if (empty($logPath)) {
             die('config logPath must be set!' . PHP_EOL);
         }
         Utils::mkdir($logPath);
         $this->logPath = $logPath;
+        $this->logLevel = $logLevel;
         if ($logSaveFileApp) {
             $this->logSaveFileApp = $logSaveFileApp;
         }
@@ -57,12 +59,12 @@ class Logs
      * @param mixed $logSaveFileApp
      * @param mixed $logSystem
      */
-    public static function getLogger($logPath='', $logSaveFileApp='', $logSystem = '')
+    public static function getLogger($logPath='', $logSaveFileApp='', $logSystem = '', $logLevel = NULL)
     {
         if (isset(self::$instance) && null !== self::$instance) {
             return self::$instance;
         }
-        self::$instance=new self($logPath, $logSaveFileApp, $logSystem);
+        self::$instance=new self($logPath, $logSaveFileApp, $logSystem, $logLevel);
 
         return self::$instance;
     }
@@ -95,7 +97,11 @@ class Logs
         if (empty($category)) {
             $category=$this->logSaveFileApp;
         }
-        $this->logs[$category][]      = [$message, $level, $category, microtime(true)];
+
+        if($this->logLevel == $level){
+            $this->logs[$category][] = [$message, $level, $category, microtime(true)];
+        }
+
         ++$this->logCount;
         if ($this->logCount >= self::MAX_LOGS || true == $flush) {
             $this->flush($category);

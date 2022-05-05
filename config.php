@@ -13,6 +13,7 @@ return $config = [
     //项目/系统标识
     'system'            => 'swoole-jobs',
     //log目录
+    'logLevel'              => 'error', // NULL, trace, info, error
     'logPath'               => __DIR__ . '/log',
     'logSaveFileApp'        => 'application.log', //默认log存储名字
     'logSaveFileWorker'     => 'crontab.log', // 进程启动相关log存储名字

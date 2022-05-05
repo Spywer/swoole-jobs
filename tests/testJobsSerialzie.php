@@ -19,7 +19,7 @@ use Kcloze\Jobs\Queue\BaseTopicQueue;
 use Kcloze\Jobs\Queue\Queue;
 
 $config        = require_once SWOOLE_JOBS_ROOT_PATH . '/config.php';
-$logger        = Logs::getLogger($config['logPath'] ?? '', $config['logSaveFileApp'] ?? '');
+$logger        = Logs::getLogger($config['logPath'] ?? '', $config['logSaveFileApp'] ?? '', $this->config['system'] ?? '', $config['logLevel'] ?? '');
 $queue         =Queue::getQueue($config['job']['queue'], $logger);
 
 //var_dump($queue);
